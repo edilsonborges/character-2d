@@ -1,0 +1,23 @@
+# Build artifacts
+build/
+*.love
+*.zip
+*.app
+
+# love.js output
+web/game.js
+web/game.data
+web/love.js
+web/love.wasm
+web/love.worker.js
+
+# iOS build
+ios/build/
+ios/*.xcworkspace/xcuserdata/
+ios/*.xcodeproj/xcuserdata/
+
+# macOS
+.DS_Store
+
+# Node
+node_modules/

@@ -1,0 +1,83 @@
+name: Build & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build-love:
+    name: Package .love file
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create .love package
+        run: zip -9 character2d.love main.lua conf.lua
+      - uses: actions/upload-artifact@v4
+        with:
+          name: character2d-love
+          path: character2d.love
+
+  build-web:
+    name: Build for Web (love.js)
+    needs: build-love
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/download-artifact@v4
+        with:
+          name: character2d-love
+      - name: Build with love.js
+        run: |
+          npx love.js@0.9.0 character2d.love build/web --title "Character 2D" --memory 67108864
+          cp web/index.html build/web/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+
+  deploy-web:
+    name: Deploy to GitHub Pages
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: build-web
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  build-macos:
+    name: Build macOS .app
+    needs: build-love
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: character2d-love
+      - name: Download Love2D macOS
+        run: |
+          curl -L -o love-macos.zip https://github.com/love2d/love/releases/download/11.5/love-11.5-macos.zip
+          unzip love-macos.zip
+      - name: Create macOS app bundle
+        run: |
+          cp -R love.app "Character 2D.app"
+          cp character2d.love "Character 2D.app/Contents/Resources/"
+          # Update Info.plist
+          /usr/libexec/PlistBuddy -c "Set :CFBundleName 'Character 2D'" "Character 2D.app/Contents/Info.plist"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier 'com.character2d.game'" "Character 2D.app/Contents/Info.plist"
+          zip -r character2d-macos.zip "Character 2D.app"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: character2d-macos
+          path: character2d-macos.zip
